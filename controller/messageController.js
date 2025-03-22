@@ -47,3 +47,24 @@ module.exports.getAllMessages = async (req, resp, next) => {
     next(error.message);
   }
 };
+
+
+module.exports.markAsRead = async (req, res, next) => {
+  try {
+    const { from, to } = req.body;
+
+    const response = await messageModel.updateMany(
+      {
+        sender: from,
+        users: { $all: [to, from] },
+        read: false
+      },
+      { $set: { read: true } }
+    );
+    if (!response) return res.json({ status: false });
+
+    res.status(200).json({ status: true });
+  } catch (error) {
+    next(error);
+  }
+};
