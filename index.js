@@ -14,6 +14,11 @@ dotenv.config();
 app.use(cors());
 app.use(express.json());
 
+// health/home
+app.get("/", (req, res) => {
+  res.status(200).send("<h1>server connected</h1>");
+})
+
 // use imported route file
 app.use("/api/auth", userRoute);
 app.use("/api/messages", messageRoute);
