@@ -19,4 +19,7 @@ const messageSchema = new mongoose.Schema({
   },
 }, { timestamps: true });
 
+messageSchema.index({ users: 1, createdAt: -1 });
+messageSchema.index({ sender: 1, read: 1 });
+
 module.exports = mongoose.model("Messages", messageSchema);

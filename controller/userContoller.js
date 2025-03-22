@@ -70,18 +70,17 @@ module.exports.getContactUsers = async (req, res, next) => {
             {
               $match: {
                 $expr: {
-                  $and: [
+                  $or: [
                     {
-                      $eq: [
-                        {
-                          $size: {
-                            $setIntersection: [
-                              "$users",
-                              [new mongoose.Types.ObjectId(currentUserId), "$$contactId"]
-                            ]
-                          }
-                        },
-                        2
+                      $and: [
+                        { $eq: ["$sender", "$$contactId"] },
+                        { $eq: ["$receiver", new mongoose.Types.ObjectId(currentUserId)] }
+                      ]
+                    },
+                    {
+                      $and: [
+                        { $eq: ["$sender", new mongoose.Types.ObjectId(currentUserId)] },
+                        { $eq: ["$receiver", "$$contactId"] }
                       ]
                     }
                   ]
@@ -94,7 +93,8 @@ module.exports.getContactUsers = async (req, res, next) => {
               $project: {
                 text: "$message.text",
                 createdAt: 1,
-                read: 1
+                read: 1,
+                sender: 1
               }
             }
           ],
@@ -111,7 +111,7 @@ module.exports.getContactUsers = async (req, res, next) => {
                 $expr: {
                   $and: [
                     { $eq: ["$sender", "$$contactId"] },
-                    { $in: [new mongoose.Types.ObjectId(currentUserId), "$users"] },
+                    { $eq: ["$receiver", new mongoose.Types.ObjectId(currentUserId)] },
                     { $eq: ["$read", false] }
                   ]
                 }

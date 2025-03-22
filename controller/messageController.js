@@ -1,3 +1,4 @@
+const { default: mongoose } = require("mongoose");
 const messageModel = require("../models/messageModel");
 
 module.exports.addMessages = async (req, resp, next) => {
@@ -53,17 +54,21 @@ module.exports.markAsRead = async (req, res, next) => {
   try {
     const { from, to } = req.body;
 
-    const response = await messageModel.updateMany(
+    await messageModel.updateMany(
       {
-        sender: from,
-        users: { $all: [to, from] },
+        sender: new mongoose.Types.ObjectId(from),
+        users: {
+          $all: [
+            new mongoose.Types.ObjectId(to),
+            new mongoose.Types.ObjectId(from)
+          ]
+        },
         read: false
       },
       { $set: { read: true } }
     );
-    if (!response) return res.json({ status: false });
 
-    res.status(200).json({ status: true });
+    res.json({ status: true });
   } catch (error) {
     next(error);
   }
