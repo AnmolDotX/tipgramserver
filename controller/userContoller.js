@@ -1,3 +1,4 @@
+const { default: mongoose } = require("mongoose");
 const User = require("../models/userModel");
 const bcrypt = require("bcrypt");
 
@@ -51,32 +52,92 @@ module.exports.login = async (req, resp, next) => {
   }
 };
 
-module.exports.setAvatar = async (req, resp, next) => {
+module.exports.getContactUsers = async (req, res, next) => {
   try {
-    const userId = req.params.id;
-    const avatarImage = req.body.image;
-    const userData = await User.findByIdAndUpdate(userId, {
-      isAvatarImageSet: true,
-      avatarImage,
-    });
-    return resp.json({
-      isSet: userData.isAvatarImageSet,
-      image: userData.avatarImage,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+    const currentUserId = req.params.id;
 
-module.exports.getContactUsers = async (req, resp, next) => {
-  try {
-    const users = await User.find({ _id: { $ne: req.params.id } }).select([
-      "email",
-      "username",
-      "avatarImage",
-      "_id",
+    const contacts = await User.aggregate([
+      {
+        $match: {
+          _id: { $ne: new mongoose.Types.ObjectId(currentUserId) }
+        }
+      },
+      {
+        $lookup: {
+          from: "messages",
+          let: { contactId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $or: [
+                    {
+                      $and: [
+                        { $eq: ["$sender", "$$contactId"] },
+                        { $eq: ["$receiver", new mongoose.Types.ObjectId(currentUserId)] }
+                      ]
+                    },
+                    {
+                      $and: [
+                        { $eq: ["$sender", new mongoose.Types.ObjectId(currentUserId)] },
+                        { $eq: ["$receiver", "$$contactId"] }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+              $project: {
+                text: "$message.text",
+                createdAt: 1,
+                read: 1,
+                sender: 1
+              }
+            }
+          ],
+          as: "lastMessage"
+        }
+      },
+      {
+        $lookup: {
+          from: "messages",
+          let: { contactId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$sender", "$$contactId"] },
+                    { $eq: ["$receiver", new mongoose.Types.ObjectId(currentUserId)] },
+                    { $eq: ["$read", false] }
+                  ]
+                }
+              }
+            },
+            { $count: "count" }
+          ],
+          as: "unreadMessages"
+        }
+      },
+      {
+        $project: {
+          username: 1,
+          email: 1,
+          avatarImage: 1,
+          lastMessage: {
+            $ifNull: [{ $arrayElemAt: ["$lastMessage", 0] }, null]
+          },
+          unreadCount: {
+            $ifNull: [{ $arrayElemAt: ["$unreadMessages.count", 0] }, 0]
+          }
+        }
+      }
     ]);
-    return resp.json(users)
+
+    res.json({ status: true, contacts });
   } catch (error) {
     next(error);
   }
